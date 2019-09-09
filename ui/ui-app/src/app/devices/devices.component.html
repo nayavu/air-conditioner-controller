@@ -1,0 +1,76 @@
+<h1>Air conditioner</h1>
+
+<section>
+    <div class="spinner-border" role="status" *ngIf="!aircond">
+        <span class="sr-only">Loading...</span>
+    </div>
+    <form name="aircondForm" *ngIf="aircond" #aircondForm="ngForm">
+        <div class="form-group row">
+            <label for="power" class="col-sm-2 col-form-label">Power</label>
+            <div class="col-sm-10">
+                <div class="custom-control custom-switch">
+                    <input type="checkbox" class="custom-control-input" id="power" name="power" [(ngModel)]="aircond.on">
+                    <label class="custom-control-label" for="power"></label>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group row">
+            <label for="temperature" class="col-sm-2 col-form-label">Temperature</label>
+            <div class="col-sm-9">
+                <input type="range" class="form-control" id="temperature" name="temperature" min="16" max="30" [(ngModel)]="aircond.t" />
+                <small id="temperatureHint" class="form-text text-muted">16°C - 30°C</small>
+            </div>
+            <div class="col-sm-1">
+                <input type="number" class="form-control" id="temperatureInput" name="temperatureInput" [(ngModel)]="aircond.t" min="16" max="30" />
+            </div>
+        </div>
+
+        <div class="form-group row">
+            <label for="mode" class="col-sm-2 col-form-label">Mode</label>
+            <div class="col-sm-10">
+                <select id="mode" name="mode" [(ngModel)]="aircond.mode" class="form-control">
+                    <option *ngFor="let i of ['auto', 'normal', 'heat', 'dry']" [value]="i">{{ i }}</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group row">
+            <label for="mode" class="col-sm-2 col-form-label">Fan</label>
+            <div class="col-sm-10">
+                <select id="fan" name="fan" [(ngModel)]="aircond.fan" class="form-control">
+                    <option *ngFor="let i of ['auto', '1', '2', '3', '4', '5']" [value]="i">{{ i }}</option>
+                Swing</select>
+            </div>
+        </div>
+
+        <div class="form-group row">
+            <label for="mode" class="col-sm-2 col-form-label">Swing</label>
+            <div class="col-sm-10">
+                <select id="swing" name="swing" [(ngModel)]="aircond.swing" class="form-control">
+                    <option *ngFor="let i of ['auto', '1', '2', '3', '4', '5']" [value]="i">{{ i }}</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group row">
+            <label for="mode" class="col-sm-2 col-form-label">Profile</label>
+            <div class="col-sm-10">
+                <select id="profile" name="profile" [(ngModel)]="aircond.profile" class="form-control">
+                    <option *ngFor="let i of ['normal', 'quiet', 'boost']" [value]="i">{{ i }}</option>
+                </select>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" (click)="save()"  [disabled]="!aircondForm.form.valid || !aircondForm.form.dirty || saving">
+            <ng-container *ngIf="saving">
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                Saving...
+            </ng-container>
+            <ng-container *ngIf="!saving">
+                Save
+            </ng-container>
+        </button>
+    </form>
+
+</section>
