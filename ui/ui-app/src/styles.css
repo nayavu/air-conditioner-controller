@@ -1,1 +1,5 @@
 @import "~bootstrap/dist/css/bootstrap.css";
+
+.alert {
+    margin-top: 1rem;
+}

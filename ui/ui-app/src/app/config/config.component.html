@@ -3,6 +3,7 @@
     <div class="spinner-border" role="status" *ngIf="!config">
         <span class="sr-only">Loading...</span>
     </div>
+
     <form name="config" *ngIf="config" #configForm="ngForm">
         <div class="form-group">
             <label for="deviceName">Device name *</label>
@@ -22,28 +23,42 @@
             <label for="mqttServer">MQTT host</label>
             <input type="text" class="form-control" id="mqttServer" name="mqttServer" placeholder="" [maxLength]="12" [(ngModel)]="config.mqttHost" />
         </div>
+
         <div class="form-group">
             <label for="mqttPort">MQTT port</label>
             <input type="number" class="form-control" id="mqttPort" name="mqttPort" placeholder="" [maxLength]="5" [(ngModel)]="config.mqttPort" />
         </div>
+
         <div class="form-group">
             <label for="mqttUser">MQTT user</label>
             <input type="text" class="form-control" id="mqttUser" name="mqttUser" placeholder="" [maxLength]="16" [(ngModel)]="config.mqttUser" />
         </div>
+
         <div class="form-group">
             <label for="mqttPass">MQTT password</label>
             <input type="password" class="form-control" id="mqttPass" name="mqttPass" placeholder="" [maxLength]="16" [(ngModel)]="config.mqttPass" />
         </div>
 
-        <button type="submit" class="btn btn-primary" (click)="save()" [disabled]="!configForm.form.valid || saving">
-            <ng-container *ngIf="saving">
+        <button type="submit" class="btn btn-primary" (click)="save()" [disabled]="!configForm.form.valid || status == 'saving'">
+            <ng-container *ngIf="status == 'saving'">
                 <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                 Saving...
             </ng-container>
-            <ng-container *ngIf="!saving">
+            <ng-container *ngIf="status != 'saving'">
                 Save
             </ng-container>
         </button>
-    </form>
 
+        <div class="alert" [ngClass]="status == 'saved' ? 'alert-success' : 'alert-danger'" role="alert" *ngIf="status == 'saved' || status == 'error'">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close" (click)="status = ''">
+                <span aria-hidden="true">&times;</span>
+            </button>
+            <ng-container *ngIf="status == 'saved'">
+                Confguration saved
+            </ng-container>
+            <ng-container *ngIf="status == 'error'">
+                Failed to save configuration
+            </ng-container>
+        </div>
+    </form>
 </section>

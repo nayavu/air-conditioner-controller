@@ -3,142 +3,16 @@
 //
 
 #include <ArduinoJson.h>
-#include "air_conditioner.h"
+#include "AirConditionerControl.h"
 
-AirConditioner::AirConditioner(IRsend *irsend) {
-    this->irsend = irsend;
-}
-
-byte AirConditioner::reverse(byte n) {
-    return (byteLookup[n & 0b1111] << 4) | byteLookup[n >> 4];
-}
-
-void AirConditioner::sendByte(byte b) {
-    for (byte i = 0; i < 8; i++) {
-        irsend->mark(PANASONIC_AC_BIT_MARK);
-        irsend->space(b << i & 0b10000000 ? PANASONIC_AC_ONE_SPACE : PANASONIC_AC_ZERO_SPACE);
-    }
-}
-
-void AirConditioner::sendState() {
-    // 6 byte - switch & mode
-    if (on) {
-        data[5] = 0b10010000;
-    } else {
-        data[5] = 0b00010000;
-    }
-    switch (mode) {
-        case MODE_HEAT:
-            data[5] |= 0b0010;
-            break;
-
-        case MODE_COOL:
-            data[5] |= 0b1100;
-            break;
-
-        case MODE_DRY:
-            data[5] |= 0b0100;
-            break;
-
-        case MODE_AUTO:
-        default:
-            data[5] |= 0b0000;
-            break;
-    }
-
-    // 7 byte - temperature
-    // temperature comes in format 0XXXXX00, where XXXXX is decimal temperature value in reversed bit order
-    data[6] = reverse(t) >> 1;
-
-    // 9 byte - swing & fan
-    switch (swing) {
-        case SWING_1:
-            data[8] = 0b10000000;
-            break;
-
-        case SWING_2:
-            data[8] = 0b01000000;
-            break;
-
-        case SWING_3:
-            data[8] = 0b11000000;
-            break;
-
-        case SWING_4:
-            data[8] = 0b00100000;
-            break;
-
-        case SWING_5:
-            data[8] = 0b10100000;
-            break;
-
-        case SWING_AUTO:
-        default:
-            data[8] = 0b11110000;
-            break;
-    }
-    switch (fan) {
-        case FAN_1:
-            data[8] |= 0b1100;
-            break;
-
-        case FAN_2:
-            data[8] |= 0b0010;
-            break;
-
-        case FAN_3:
-            data[8] |= 0b1010;
-            break;
-
-        case FAN_4:
-            data[8] |= 0b0110;
-            break;
-
-        case FAN_5:
-            data[8] |= 0b1110;
-            break;
-
-        case FAN_AUTO:
-        default:
-            data[8] |= 0b0101;
-            break;
-    }
-
-
-    irsend->enableIROut(38);  // 38khz
-    irsend->space(0);
-    irsend->mark(PANASONIC_AC_HDR_MARK);
-    irsend->space(PANASONIC_AC_HDR_SPACE);
-
-    // 8 bytes - header
-    for (byte i = 0; i < 8; i++) {
-        sendByte(header[i]);
-    }
-
-    irsend->mark(PANASONIC_AC_END_MARK);
-    irsend->space(PANASONIC_AC_END_SPACE);
-
-    irsend->mark(PANASONIC_AC_HDR_MARK);
-    irsend->space(PANASONIC_AC_HDR_SPACE);
-
-    byte checksum = 0;
-    for (byte i = 0; i < 18; i++) {
-        sendByte(data[i]);
-        checksum = (byte) (reverse(data[i]) + checksum);
-    }
-    sendByte(reverse(checksum));
-    irsend->mark(PANASONIC_AC_END_MARK);
-    irsend->space(0);
-}
-
-bool AirConditioner::setState(const String &json) {
+bool AirConditionerControl::setState(const String &json) {
     DynamicJsonDocument doc(JSON_SIZE);
     DeserializationError error = deserializeJson(doc, json);
     if (error) {
         return false;
     }
 
-    byte t;
+    byte t = 0;
     const char *tStr = doc["t"];
     if (tStr) {
         if (t < 16 || t > 30) {
@@ -147,7 +21,7 @@ bool AirConditioner::setState(const String &json) {
         t = atoi(tStr);
     }
 
-    PanasonicACMode mode;
+    AirConditionerMode mode = MODE_AUTO;
     const char *modeStr = doc["mode"];
     if (modeStr) {
         if (!strcmp(modeStr, "auto")) {
@@ -163,7 +37,7 @@ bool AirConditioner::setState(const String &json) {
         }
     }
 
-    PanasonicACFan fan;
+    AirConditionerFan fan = FAN_AUTO;
     const char *fanStr = doc["fan"];
     if (fanStr) {
         if (!strcmp(fanStr, "auto")) {
@@ -183,7 +57,7 @@ bool AirConditioner::setState(const String &json) {
         }
     }
 
-    PanasonicACSwing swing;
+    AirConditionerSwing swing = SWING_AUTO;
     const char *swingStr = doc["swing"];
     if (swingStr) {
         if (!strcmp(swingStr, "auto")) {
@@ -203,7 +77,7 @@ bool AirConditioner::setState(const String &json) {
         }
     }
 
-    PanasonicACProfile profile;
+    AirConditionerProfile profile = PROFILE_NORMAL;
     const char *profileStr = doc["profile"];
     if (profileStr) {
         if (!strcmp(profileStr, "normal")) {
@@ -217,35 +91,35 @@ bool AirConditioner::setState(const String &json) {
         }
     }
 
-    if (doc.containsKey("on")) {
-        this->on = doc["on"];
+    if (doc.containsKey("power")) {
+        _aircond->state.power = doc["power"];
     }
     if (tStr) {
-        this->t = t;
+        _aircond->state.t = t;
     }
     if (modeStr) {
-        this->mode = mode;
+        _aircond->state.mode = mode;
     }
     if (swingStr) {
-        this->swing = swing;
+        _aircond->state.swing = swing;
     }
     if (fanStr) {
-        this->fan = fan;
+        _aircond->state.fan = fan;
     }
     if (profileStr) {
-        this->profile = profile;
+        _aircond->state.profile = profile;
     }
-    sendState();
+    _aircond->sendState();
     return true;
 }
 
-void AirConditioner::getState(String &output) {
+void AirConditionerControl::getState(String &output) {
     StaticJsonDocument<JSON_SIZE> doc;
 
-    doc["on"] = on;
-    doc["t"] = t;
+    doc["power"] = _aircond->state.power;
+    doc["t"] = _aircond->state.t;
 
-    switch (mode) {
+    switch (_aircond->state.mode) {
         case MODE_HEAT:
             doc["mode"] = "heat";
             break;
@@ -259,7 +133,7 @@ void AirConditioner::getState(String &output) {
             doc["mode"] = "auto";
     }
 
-    switch (fan) {
+    switch (_aircond->state.fan) {
         case FAN_1:
             doc["fan"] = "1";
             break;
@@ -279,7 +153,7 @@ void AirConditioner::getState(String &output) {
             doc["fan"] = "auto";
     }
 
-    switch (swing) {
+    switch (_aircond->state.swing) {
         case SWING_1:
             doc["swing"] = "1";
             break;
@@ -299,7 +173,7 @@ void AirConditioner::getState(String &output) {
             doc["swing"] = "auto";
     }
 
-    switch (profile) {
+    switch (_aircond->state.profile) {
         case PROFILE_QUIET:
             doc["profile"] = "quiet";
             break;
@@ -313,12 +187,12 @@ void AirConditioner::getState(String &output) {
     serializeJson(doc, output);
 }
 
-void AirConditioner::setPower(bool on) {
-    this->on = on;
-    sendState();
+void AirConditionerControl::setPower(bool power) {
+    _aircond->state.power = power;
+    _aircond->sendState();
 }
 
-void AirConditioner::setTemperature(byte t) {
-    this->t = t;
-    sendState();
+void AirConditionerControl::setTemperature(byte t) {
+    _aircond->state.t = t;
+    _aircond->sendState();
 }

@@ -1,16 +1,16 @@
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from "@angular/common/http";
 import { environment } from "../../environments/environment";
+import { Config } from "../config/config.component";
 
 @Component({
   selector: 'app-devices',
-  templateUrl: './devices.component.html',
-  styleUrls: ['./devices.component.css']
+  templateUrl: './devices.component.html'
 })
 export class DevicesComponent implements OnInit {
 
   public aircond: AirCond;
-  public saving = false;
+  public status = '';
 
   constructor(private http: HttpClient) { }
 
@@ -21,15 +21,19 @@ export class DevicesComponent implements OnInit {
   }
 
   save() {
-    this.saving = true;
-    this.http.post(environment.backend + '/devices/aircond', this.aircond).subscribe(() => {
-      this.saving = false;
-    })
+    this.status = 'saving';
+    this.http.post(environment.backend + '/devices/aircond', this.aircond).subscribe(
+        (data: Config) => {
+          this.status = 'saved';
+        },
+        error => {
+          this.status = 'error';
+        });
   }
 }
 
 export interface AirCond {
-  on: boolean,
+  power: boolean,
   t: number,
   mode: 'auto' | 'heat' | 'cool' | 'dry',
   fan: 'auto' | '1' | '2' | '3' | '4' | '5',

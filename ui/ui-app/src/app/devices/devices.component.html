@@ -4,12 +4,13 @@
     <div class="spinner-border" role="status" *ngIf="!aircond">
         <span class="sr-only">Loading...</span>
     </div>
+
     <form name="aircondForm" *ngIf="aircond" #aircondForm="ngForm">
         <div class="form-group row">
             <label for="power" class="col-sm-2 col-form-label">Power</label>
             <div class="col-sm-10">
                 <div class="custom-control custom-switch">
-                    <input type="checkbox" class="custom-control-input" id="power" name="power" [(ngModel)]="aircond.on">
+                    <input type="checkbox" class="custom-control-input" id="power" name="power" [(ngModel)]="aircond.power">
                     <label class="custom-control-label" for="power"></label>
                 </div>
             </div>
@@ -62,15 +63,26 @@
             </div>
         </div>
 
-        <button type="submit" class="btn btn-primary" (click)="save()"  [disabled]="!aircondForm.form.valid || !aircondForm.form.dirty || saving">
-            <ng-container *ngIf="saving">
+        <button type="submit" class="btn btn-primary" (click)="save()"  [disabled]="!aircondForm.valid || !aircondForm.dirty || status == 'saving'">
+            <ng-container *ngIf="status == 'saving'">
                 <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                 Saving...
             </ng-container>
-            <ng-container *ngIf="!saving">
+            <ng-container *ngIf="status != 'saving'">
                 Save
             </ng-container>
         </button>
-    </form>
 
+        <div class="alert" [ngClass]="status == 'saved' ? 'alert-success' : 'alert-danger'" role="alert" *ngIf="status == 'saved' || status == 'error'">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close" (click)="status = ''">
+                <span aria-hidden="true">&times;</span>
+            </button>
+            <ng-container *ngIf="status == 'saved'">
+                Ok
+            </ng-container>
+            <ng-container *ngIf="status == 'error'">
+                Failed
+            </ng-container>
+        </div>
+    </form>
 </section>

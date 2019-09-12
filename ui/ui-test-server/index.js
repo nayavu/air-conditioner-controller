@@ -17,7 +17,7 @@ var ctx = {
     },
     devices : {
         aircond : {
-            on : false,
+            power : false,
             t : 16,
             mode : 'auto',
             fan : 'auto',
@@ -35,6 +35,7 @@ app.use(function(req, res, next) {
 
 app.get('/config', (req, res) => {
     res.send(ctx.config)
+    // res.status(404).send(''); // if a fresh installation and there's no config file in the fs
 });
 
 app.post('/config', (req, res) => {

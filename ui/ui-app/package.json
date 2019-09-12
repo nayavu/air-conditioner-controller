@@ -4,7 +4,7 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build": "ng build --prod && gulp purify-css && gulp compress && gulp copy-icon",
+    "build": "ng build --prod && gulp purify-css && gulp compress && gulp copy-files",
     "lint": "ng lint",
     "bundle-report": "webpack-bundle-analyzer dist/stats.json"
   },
@@ -29,7 +29,7 @@
     "@angular/language-service": "~8.2.5",
     "@types/node": "~12.7.4",
     "gulp": "^4.0.2",
-    "gulp-brotli": "^1.2.2",
+    "gulp-gzip": "^1.4.2",
     "gulp-purifycss": "^0.2.0",
     "ts-node": "~8.3.0",
     "tslint": "~5.19.0",

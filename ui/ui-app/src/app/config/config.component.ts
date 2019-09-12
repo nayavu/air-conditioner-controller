@@ -9,23 +9,39 @@ import { environment } from "../../environments/environment";
 export class ConfigComponent implements OnInit {
 
   public config: Config;
-  public saving = false;
+  public status = '';
 
   constructor(private http: HttpClient) { }
 
   ngOnInit() {
-    this.http.get(environment.backend + '/config').subscribe((data: Config) => {
-      this.config = data;
-    })
+    this.http.get(environment.backend + '/config').subscribe(
+        (data: Config) => {
+          this.config = data;
+        },
+        error => {
+          console.warn("No configuration found, assuming it's a fresh installation");
+          this.config = {
+            deviceName: 'remote',
+            wifiSsid: '',
+            wifiPass: '',
+            mqttHost: '',
+            mqttPort: 1883,
+            mqttUser: '',
+            mqttPass: '',
+          };
+        })
   }
 
   save() {
-    this.saving = true;
-    this.http.post(environment.backend + '/config', this.config).subscribe((data: Config) => {
-      this.saving = false;
-    })
+    this.status = 'saving';
+    this.http.post(environment.backend + '/config', this.config).subscribe(
+        (data: Config) => {
+          this.status = 'saved';
+        },
+        error => {
+          this.status = 'error';
+        })
   }
-
 }
 
 export interface Config {
