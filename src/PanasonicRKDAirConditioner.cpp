@@ -5,7 +5,6 @@
 #include "PanasonicRKDAirConditioner.h"
 
 #ifdef DEBUG_ESP_PORT
-//#define DEBUG_SETUP() Serial.begin(115200)
 #define DEBUG_MSG(...) DEBUG_ESP_PORT.printf( __VA_ARGS__ ); DEBUG_ESP_PORT.print("\n")
 #else
 #define DEBUG_MSG(...)

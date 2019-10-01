@@ -6,46 +6,56 @@
 #include <FS.h>
 #include "StructPersister.h"
 
+#ifdef DEBUG_ESP_PORT
+#define DEBUG_MSG(...) DEBUG_ESP_PORT.printf( __VA_ARGS__ ); DEBUG_ESP_PORT.print("\n")
+#else
+#define DEBUG_MSG(...)
+#endif
 
-uint8_t StructPersister::calculateChecksum(uint8_t* config, size_t len) {
-    byte sum = 31;
-    for (byte i = 0; i < len; i++) {
-        sum ^= config[i];
+byte StructPersister::calculateChecksum(byte* obj, size_t objLen) {
+    uint8_t sum = 31;
+    for (uint16_t i = 0; i < objLen; i++) {
+        sum ^= obj[i];
     }
     return sum;
 }
 
-bool StructPersister::load(const char* filename, void* obj, size_t objLen) {
+bool StructPersister::load(const char* filename, byte* obj, size_t objLen) {
+    DEBUG_MSG("Loading struct from %s", filename);
     File f = SPIFFS.open(filename, "r");
     if (!f) {
+        DEBUG_MSG("No such file");
         return false;
     }
-    uint8_t buf[objLen + 1];
+    byte buf[objLen + 1];
     if (f.read(buf, sizeof(buf)) != sizeof(buf)) {
         f.close();
+        DEBUG_MSG("Failed to read %d bytes", sizeof(buf));
         return false;
     }
     if (calculateChecksum(buf, objLen) != buf[objLen]) {
         f.close();
+        DEBUG_MSG("Checksum verification failed");
         return false;
     }
     memcpy(obj, buf, objLen);
 
     f.close();
+    DEBUG_MSG("Ok");
     return true;
 }
 
-bool StructPersister::persist(const char* filename, void* obj, size_t objLen) {
-    uint8_t checksum = calculateChecksum((uint8_t*) obj, objLen);
+bool StructPersister::persist(const char* filename, byte* obj, size_t objLen) {
+    DEBUG_MSG("Saving struct to %s", filename);
+    byte checksum = calculateChecksum(obj, objLen);
+    DEBUG_MSG("Checksum: %d", checksum);
     File f = SPIFFS.open(filename, "w");
-    if (f.write((uint8_t*) obj, objLen) != objLen) {
-        f.close();
-        return false;
-    }
-    if (f.write(checksum) != 1) {
-        f.close();
-        return false;
+    bool res = f.write(obj, objLen) == objLen && f.write(checksum) == 1;
+    if (res) {
+        DEBUG_MSG("Ok");
+    } else {
+        DEBUG_MSG("Failed");
     }
     f.close();
-    return true;
+    return res;
 }

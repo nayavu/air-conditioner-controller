@@ -5,11 +5,11 @@
 #include "ConfigManager.h"
 
 bool ConfigManager::load() {
-    return StructPersister::load(configFile, &config, sizeof(AppConfig));
+    return StructPersister::load(configFile, (uint8_t*) &_config, sizeof(AppConfig));
 }
 
 bool ConfigManager::save() {
-    return StructPersister::persist(configFile, &config, sizeof(AppConfig));
+    return StructPersister::persist(configFile, (uint8_t*) &_config, sizeof(AppConfig));
 }
 
 bool ConfigManager::toJson(String& json) {

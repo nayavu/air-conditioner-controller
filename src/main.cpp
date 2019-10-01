@@ -242,7 +242,6 @@ void setupServer() {
     server.on("/config", HTTP_POST, []() {
         DEBUG_MSG("POST /config\n%s\n", server.arg("plain").c_str());
         bool res = configManager.fromJson(server.arg("plain"));
-        configManager.save();
         if (res) {
             led.blink();
             server.send(200);
