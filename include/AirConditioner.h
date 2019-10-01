@@ -8,9 +8,9 @@
 enum AirConditionerMode { MODE_AUTO, MODE_HEAT, MODE_COOL, MODE_DRY };
 enum AirConditionerFan { FAN_AUTO, FAN_1, FAN_2, FAN_3, FAN_4, FAN_5 };
 enum AirConditionerSwing { SWING_AUTO, SWING_1, SWING_2, SWING_3, SWING_4, SWING_5 };
-enum AirConditionerProfile { PROFILE_NORMAL, PROFILE_QUIET, PROFILE_BOOST };
+enum AirConditionerProfile { PROFILE_NORMAL, PROFILE_POWERFUL, PROFILE_QUIET };
 
-struct AirConditionerState {
+struct __attribute__((__packed__)) AirConditionerState {
     bool power = false;
     uint8_t t = 23;
     AirConditionerMode mode = MODE_AUTO;
@@ -19,15 +19,11 @@ struct AirConditionerState {
     AirConditionerProfile profile = PROFILE_NORMAL;
 };
 
-#define JSON_SIZE JSON_OBJECT_SIZE(6) + 60
-
 // Represents the state of Panasonic CS/CU-E-RKD
 class AirConditioner {
 public:
-    AirConditionerState state;
-
-    virtual void sendState();
+    virtual bool setState(AirConditionerState &state);
 };
 
 
-#endif //REMOTE_CONTROL_AIRCONDITIONER_H
+#endif //REMOTE_CONTROL_AIRCONDITIONERCONTROL_H

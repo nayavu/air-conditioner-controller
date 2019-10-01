@@ -12,13 +12,9 @@ bool AirConditionerControl::setState(const String &json) {
         return false;
     }
 
-    byte t = 0;
-    const char *tStr = doc["t"];
-    if (tStr) {
-        if (t < 16 || t > 30) {
-            return false;
-        }
-        t = atoi(tStr);
+    byte t = doc["t"];
+    if (t && (t < 16 || t > 30)) {
+        return false;
     }
 
     AirConditionerMode mode = MODE_AUTO;
@@ -82,44 +78,44 @@ bool AirConditionerControl::setState(const String &json) {
     if (profileStr) {
         if (!strcmp(profileStr, "normal")) {
             profile = PROFILE_NORMAL;
+        } else if (!strcmp(profileStr, "powerful")) {
+            profile = PROFILE_POWERFUL;
         } else if (!strcmp(profileStr, "quiet")) {
             profile = PROFILE_QUIET;
-        } else if (!strcmp(profileStr, "boost")) {
-            profile = PROFILE_BOOST;
         } else {
             return false;
         }
     }
 
     if (doc.containsKey("power")) {
-        _aircond->state.power = doc["power"];
+        state.power = doc["power"];
     }
-    if (tStr) {
-        _aircond->state.t = t;
+    if (t) {
+        state.t = t;
     }
     if (modeStr) {
-        _aircond->state.mode = mode;
+        state.mode = mode;
     }
     if (swingStr) {
-        _aircond->state.swing = swing;
+        state.swing = swing;
     }
     if (fanStr) {
-        _aircond->state.fan = fan;
+        state.fan = fan;
     }
     if (profileStr) {
-        _aircond->state.profile = profile;
+        state.profile = profile;
     }
-    _aircond->sendState();
+    _aircond->setState(state);
     return true;
 }
 
 void AirConditionerControl::getState(String &output) {
     StaticJsonDocument<JSON_SIZE> doc;
 
-    doc["power"] = _aircond->state.power;
-    doc["t"] = _aircond->state.t;
+    doc["power"] = state.power;
+    doc["t"] = state.t;
 
-    switch (_aircond->state.mode) {
+    switch (state.mode) {
         case MODE_HEAT:
             doc["mode"] = "heat";
             break;
@@ -133,7 +129,7 @@ void AirConditionerControl::getState(String &output) {
             doc["mode"] = "auto";
     }
 
-    switch (_aircond->state.fan) {
+    switch (state.fan) {
         case FAN_1:
             doc["fan"] = "1";
             break;
@@ -153,7 +149,7 @@ void AirConditionerControl::getState(String &output) {
             doc["fan"] = "auto";
     }
 
-    switch (_aircond->state.swing) {
+    switch (state.swing) {
         case SWING_1:
             doc["swing"] = "1";
             break;
@@ -173,12 +169,12 @@ void AirConditionerControl::getState(String &output) {
             doc["swing"] = "auto";
     }
 
-    switch (_aircond->state.profile) {
+    switch (state.profile) {
         case PROFILE_QUIET:
             doc["profile"] = "quiet";
             break;
-        case PROFILE_BOOST:
-            doc["profile"] = "boost";
+        case PROFILE_POWERFUL:
+            doc["profile"] = "powerful";
             break;
         default:
             doc["profile"] = "normal";
@@ -188,11 +184,11 @@ void AirConditionerControl::getState(String &output) {
 }
 
 void AirConditionerControl::setPower(bool power) {
-    _aircond->state.power = power;
-    _aircond->sendState();
+    state.power = power;
+    _aircond->setState(state);
 }
 
 void AirConditionerControl::setTemperature(byte t) {
-    _aircond->state.t = t;
-    _aircond->sendState();
+    state.t = t;
+    _aircond->setState(state);
 }

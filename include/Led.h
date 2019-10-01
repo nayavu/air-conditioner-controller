@@ -6,7 +6,7 @@
 #define REMOTE_CONTROL_LED_H
 
 #include <Arduino.h>
-#include "Context.h"
+#include "App.h"
 
 #define LED_BLINK_INTERVAL 200
 #define LED_MODE_CONFIG          0b01010101

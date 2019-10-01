@@ -8,19 +8,6 @@
 
 #include <ESP8266WebServer.h>
 #include <FS.h>
-#include "detail/RequestHandlersImpl.h"
-
-class PostableStaticRequestHandler : public StaticRequestHandler {
-public:
-    PostableStaticRequestHandler(FS& fs, const char* path, const char* uri, const char* cache_header = NULL)
-            : StaticRequestHandler(fs, path, uri, cache_header) { };
-
-    bool canHandle(HTTPMethod requestMethod, String requestUri) override;
-    bool handle(ESP8266WebServer& server, HTTPMethod requestMethod, String requestUri) override;
-
-protected:
-    File fsUploadFile;
-};
 
 /**
  * A subclass of ESP8266WebServer with pre-configured routes for Angular application
@@ -31,8 +18,7 @@ private:
 
 public:
     UiWebServer() : ESP8266WebServer() { };
-    void setupAngularApp();
-    void serveUploadableFile(const char *uri, const char *path);
+    void begin() override;
 };
 
 

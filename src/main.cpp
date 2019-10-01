@@ -9,39 +9,36 @@
 #include <ArduinoJson.h>
 #include <ArduinoOTA.h>
 
-#include "Context.h"
+#include "App.h"
 #include "Led.h"
 #include "AirConditionerControl.h"
-#include "Panasonic.h"
+#include "PanasonicRKDAirConditioner.h"
+#include "ConfigManager.h"
 #include "UiWebServer.h"
 
-#define _DEBUG
-
-#ifdef _DEBUG
-
-#define DEBUG_SETUP() Serial.begin(115200)
-#define DEBUG_MSG(...) Serial.printf( __VA_ARGS__ ); Serial.print("\n")
-
+#ifdef DEBUG_ESP_PORT
+#define DEBUG_SETUP() DEBUG_ESP_PORT.begin(115200)
+#define DEBUG_MSG(...) DEBUG_ESP_PORT.printf( __VA_ARGS__ ); DEBUG_ESP_PORT.print("\n")
 #else
-
-#define DEBUG_SETUP()
 #define DEBUG_MSG(...)
-
+#define DEBUG_SETUP()
 #endif
 
-#define SYS_LED_PIN 4
-#define INFO_LED_PIN 12
-#define IR_LED_PIN 5
+#define SYS_LED_PIN 12
+#define INFO_LED_PIN 13
+#define IR_LED_PIN 14
 
-Context context;
+App app;
 
-Led led(INFO_LED_PIN, SYS_LED_PIN, &context.state);
+Led led(INFO_LED_PIN, SYS_LED_PIN, &app.state);
+
+ConfigManager configManager;
 
 UiWebServer server;
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 IRsend irsend(IR_LED_PIN);
-Panasonic panasonicAirCond(&irsend);
+PanasonicRKDAirConditioner panasonicAirCond(&irsend);
 AirConditionerControl airConditioner(&panasonicAirCond);
 
 
@@ -51,56 +48,6 @@ AirConditionerControl airConditioner(&panasonicAirCond);
 
 #define OTA_PASS "R3m0t3-C0ntr0l" // yes, it's not secure to store passwords in the source code on Github :)
 
-// ------- CONFIG ------
-
-#define CONFIG_FILE_NAME "/config.json"
-
-bool loadConfig() {
-    File f = SPIFFS.open(CONFIG_FILE_NAME, "r");
-    if (!f) {
-        return false;
-    }
-    String s = f.readString();
-    f.close();
-
-    DynamicJsonDocument doc(JSON_OBJECT_SIZE(7) + 260);
-    DeserializationError error = deserializeJson(doc, s);
-    if (error) {
-        return false;
-    }
-    const char *deviceName = doc["deviceName"];
-    const char *wifiSsid = doc["wifiSsid"];
-    const char *wifiPass = doc["wifiPass"];
-    const char *mqttHost = doc["mqttHost"];
-    const char *mqttPort = doc["mqttPort"];
-    const char *mqttUser = doc["mqttUser"];
-    const char *mqttPass = doc["mqttPass"];
-
-    if (!deviceName || !wifiSsid) {
-        return false;
-    }
-    strncpy(context.deviceName, deviceName, sizeof(context.deviceName) - 1);
-    strncpy(context.wifiSsid, wifiSsid, sizeof(context.wifiSsid) - 1);
-    if (wifiPass) {
-        strncpy(context.wifiPass, wifiPass, sizeof(context.wifiPass) - 1);
-    }
-    if (mqttHost) {
-        strncpy(context.mqttHost, mqttHost, sizeof(context.mqttHost) - 1);
-    }
-    if (mqttPort) {
-        strncpy(context.mqttPort, mqttPort, sizeof(context.mqttPort) - 1);
-    }
-    if (mqttUser) {
-        strncpy(context.mqttUser, mqttUser, sizeof(context.mqttUser) - 1);
-    }
-    if (mqttPass) {
-        strncpy(context.mqttPass, mqttPass, sizeof(context.mqttPass) - 1);
-    }
-
-    context.mqttEnabled = context.mqttHost != 0;
-    return true;
-}
-
 // ------ Wifi ------
 
 boolean wifiSetApMode;
@@ -109,11 +56,11 @@ unsigned long wifiConnectAttemptAt;
 
 // handle wifi connection and
 void loopWifi() {
-    if (context.state == ERROR) {
+    if (app.state == ERROR) {
         wifiSetApMode = false;
-        context.state = CONFIG;
+        app.state = CONFIG;
     }
-    if (context.state == CONFIG) {
+    if (app.state == CONFIG) {
         if (!wifiSetApMode) {
             DEBUG_MSG("Setting up wifi AP with ssid=%s pass=%s", WIFI_AP_SSID, WIFI_AP_PASS);
             wifiSetApMode = true;
@@ -125,22 +72,22 @@ void loopWifi() {
         led.loop();
         return;
     }
-    if (context.state == CONNECTING_WIFI && !wifiSetClientMode) {
+    if (app.state == CONNECTING_WIFI && !wifiSetClientMode) {
         DEBUG_MSG("Connecting to wifi");
         wifiSetClientMode = true;
 
         WiFi.mode(WIFI_STA);
-        WiFi.begin(context.wifiSsid, context.wifiPass);
+        WiFi.begin(configManager.config->wifiSsid, configManager.config->wifiPass);
         WiFi.setSleepMode(WIFI_NONE_SLEEP);
 
         wifiConnectAttemptAt = millis();
     }
 
     if (WiFi.status() == WL_CONNECTED) {
-        if (context.state == CONNECTING_WIFI) {
-            context.state = CONNECTED_WIFI;
+        if (app.state == CONNECTING_WIFI) {
+            app.state = CONNECTED_WIFI;
             DEBUG_MSG("Connected as %s", WiFi.localIP().toString().c_str());
-            String domainName = String(context.deviceName) + ".local";
+            String domainName = String(configManager.config->deviceName) + ".local";
             if (MDNS.begin(domainName)) {
                 DEBUG_MSG("Registered mDNS %s", domainName.c_str());
             } else {
@@ -149,16 +96,16 @@ void loopWifi() {
         }
     } else {
 
-        if (context.state == CONNECTING_WIFI) {
+        if (app.state == CONNECTING_WIFI) {
             if (WiFi.status() == WL_NO_SSID_AVAIL) {
-                context.state = ERROR;
+                app.state = ERROR;
                 led.blink(10);
                 DEBUG_MSG("No SSID available");
                 return;
             }
 
             if (WiFi.status() == WL_CONNECT_FAILED) {
-                context.state = ERROR;
+                app.state = ERROR;
                 led.blink(5);
                 DEBUG_MSG("Failed to connect to WiFi");
                 return;
@@ -169,10 +116,10 @@ void loopWifi() {
                     || (current < wifiConnectAttemptAt && UINT32_MAX - wifiConnectAttemptAt + current > WIFI_MAX_CONNECT_TIME)) {
                 // could not connect to wifi within WIFI_MAX_CONNECT_TIME
                 DEBUG_MSG("Could not connect to wifi within %d ms, falling back to config mode", WIFI_MAX_CONNECT_TIME);
-                context.state = ERROR;
+                app.state = ERROR;
             }
         } else {
-            context.state = CONNECTING_WIFI;
+            app.state = CONNECTING_WIFI;
         }
     }
 }
@@ -203,47 +150,47 @@ void onMqttMessage(char* topic, const byte* payload, word l) {
 }
 
 void setupMqtt() {
-    int _port = atoi(context.mqttPort);
+    int _port = atoi(configManager.config->mqttPort);
     int port = _port == 0 ? 1883 : _port;
-    DEBUG_MSG("MQTT host=%s port=%d", context.mqttHost, port);
+    DEBUG_MSG("MQTT host=%s port=%d", configManager.config->mqttHost, port);
     IPAddress ipAddress;
-    ipAddress.fromString(context.mqttHost);
+    ipAddress.fromString(configManager.config->mqttHost);
     mqttClient.setServer(ipAddress, port);
     mqttClient.setCallback(&onMqttMessage);
 
-    mqttSetTopic = String("/devices/remote-control/") + context.deviceName + "/set";
-    mqttStateTopic = String("/devices/remote-control/") + context.deviceName;
+    mqttSetTopic = String("/devices/remote-control/") + configManager.config->deviceName + "/set";
+    mqttStateTopic = String("/devices/remote-control/") + configManager.config->deviceName;
 }
 
 void loopMqtt() {
-    if (context.state == CONNECTED_WIFI) {
-        context.state = CONNECTING_MQTT;
+    if (app.state == CONNECTED_WIFI) {
+        app.state = CONNECTING_MQTT;
     }
-    if (context.state == CONNECTING_MQTT) {
+    if (app.state == CONNECTING_MQTT) {
         if (!mqttSetClient) {
             mqttSetClient = true;
-            DEBUG_MSG("Connecting to MQTT as id=%s, user=%s, pass=%s", context.deviceName, context.mqttUser, context.mqttPass);
-            if (context.mqttUser && strlen(context.mqttUser) && context.mqttPass && strlen(context.mqttPass)) {
-                mqttClient.connect(context.deviceName, context.mqttUser, context.mqttPass);
+            DEBUG_MSG("Connecting to MQTT as id=%s, user=%s, pass=%s", configManager.config->deviceName, configManager.config->mqttUser, configManager.config->mqttPass);
+            if (configManager.config->mqttUser && strlen(configManager.config->mqttUser) && configManager.config->mqttPass && strlen(configManager.config->mqttPass)) {
+                mqttClient.connect(configManager.config->deviceName, configManager.config->mqttUser, configManager.config->mqttPass);
             } else {
-                mqttClient.connect(context.deviceName);
+                mqttClient.connect(configManager.config->deviceName);
             }
         }
 
         if (mqttClient.connected()) {
             DEBUG_MSG("Subscribing to topic %s", mqttSetTopic.c_str());
             mqttClient.subscribe(mqttSetTopic.c_str());
-            mqttClient.publish(HELLO_TOPIC, context.deviceName);
+            mqttClient.publish(HELLO_TOPIC, configManager.config->deviceName);
             mqttPublishState();
 
-            context.state = NORMAL;
+            app.state = NORMAL;
         }
     }
-    if (!mqttClient.connected() && context.state == NORMAL) {
+    if (!mqttClient.connected() && app.state == NORMAL) {
         DEBUG_MSG("Lost connection to MQTT server");
-        context.state = CONNECTING_MQTT;
+        app.state = CONNECTING_MQTT;
     };
-    if (context.state == NORMAL) {
+    if (app.state == NORMAL) {
         mqttClient.loop();
     }
 }
@@ -266,7 +213,6 @@ void setupServer() {
         bool res = airConditioner.setState(server.arg("plain"));
         if (res) {
             led.blink();
-            loadConfig();
             server.send(200);
             DEBUG_MSG("HTTP 200");
         } else {
@@ -274,24 +220,47 @@ void setupServer() {
             server.send(400);
             DEBUG_MSG("HTTP 400");
         }
-        if (context.mqttEnabled) {
+        if (app.mqttEnabled) {
             mqttPublishState();
         }
     });
 
-    server.serveUploadableFile("/config", CONFIG_FILE_NAME);
-    server.setupAngularApp();
+    server.on("/config", HTTP_GET, []() {
+        DEBUG_MSG("GET /config");
+        bool configLoaded = configManager.load();
+        if (!configLoaded) {
+            server.send(500);
+            DEBUG_MSG("HTTP 500 Could not load config file");
+            return;
+        }
+        String buf = String();
+        configManager.toJson(buf);
+        server.send(200, "application/json", buf);
+        DEBUG_MSG("HTTP 200");
+    });
 
+    server.on("/config", HTTP_POST, []() {
+        DEBUG_MSG("POST /config\n%s\n", server.arg("plain").c_str());
+        bool res = configManager.fromJson(server.arg("plain"));
+        configManager.save();
+        if (res) {
+            led.blink();
+            server.send(200);
+            DEBUG_MSG("HTTP 200");
+            ESP.restart();
+        } else {
+            led.error();
+            server.send(400);
+            DEBUG_MSG("HTTP 400");
+        }
+    });
+    
     server.onNotFound([]() {
         DEBUG_MSG("HTTP 404");
         server.send(404);
     });
     DEBUG_MSG("Starting web server");
     server.begin();
-}
-
-void loopServer() {
-    server.handleClient();
 }
 
 // ------ OTA ------
@@ -346,17 +315,17 @@ void setup() {
     SPIFFS.begin();
 
     DEBUG_MSG("Loading config");
-    if (!loadConfig()) {
-        context.state = CONFIG;
+    if (!configManager.load()) {
+        app.state = CONFIG;
     } else {
-        context.state = CONNECTING_WIFI;
+        app.state = CONNECTING_WIFI;
     }
     DEBUG_MSG("Config: deviceName=%s wifiSsid=%s wifiPass=%s mqttHost=%s mqttPort=%s mqttUser=%s mqttPass=%s",
-            context.deviceName, context.wifiSsid, context.wifiPass, context.mqttHost, context.mqttPort, context.mqttUser, context.mqttPass);
+              configManager.config->deviceName, configManager.config->wifiSsid, configManager.config->wifiPass, configManager.config->mqttHost, configManager.config->mqttPort, configManager.config->mqttUser, configManager.config->mqttPass);
 
-    DEBUG_MSG("State: %s", context.state == CONFIG ? "CONFIG" : "CONNECTING_WIFI");
+    DEBUG_MSG("State: %s", app.state == CONFIG ? "CONFIG" : "CONNECTING_WIFI");
 
-    if (context.mqttEnabled) {
+    if (app.mqttEnabled) {
         setupMqtt();
     }
 
@@ -373,11 +342,11 @@ void loop() {
 
     loopWifi();
 
-    if (context.mqttEnabled) {
+    if (app.mqttEnabled) {
         loopMqtt();
     }
 
-    loopServer();
+    server.handleClient();
 
     led.loop();
     delay(1);

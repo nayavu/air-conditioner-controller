@@ -80,4 +80,4 @@ add_custom_target(
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-add_executable(${PROJECT_NAME} ${SRC_LIST})
+add_executable(${PROJECT_NAME} ${SRC_LIST} include/StructPersister.h src/StructPersister.cpp src/ConfigManager.cpp src/ConfigManager.h)

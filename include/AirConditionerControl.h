@@ -12,10 +12,11 @@
 
 // Represents the state of Panasonic CS/CU-E-RKD
 class AirConditionerControl {
-    AirConditioner *_aircond;
+    AirConditioner* _aircond;
+    AirConditionerState state;
 public:
 
-    AirConditionerControl(AirConditioner *aircond) : _aircond(aircond) { };
+    AirConditionerControl(AirConditioner* aircond) : _aircond(aircond) { };
 
     // Set internal air-conditioner state based on input JSON.
     // Returns true if succeed or false if JSON parse failed.
@@ -26,7 +27,7 @@ public:
     //  "mode": "auto", // options: "auto", "heat", "cool", "dry"
     //  "fan": "auto", // options: "auto", "1", "2", "3", "4", "5"
     //  "swing": "auto", // options: "auto", "1", "2", "3", "4", "5"
-    //  "profile": "normal" // options: "normal", "quiet", "boost"
+    //  "profile": "normal" // options: "normal", "powerful", "quiet"
     // }
     bool setState(const String &json);
 

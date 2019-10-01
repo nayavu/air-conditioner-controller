@@ -5,11 +5,11 @@
 #include "Led.h"
 
 // inverted state, because in my case LEDs are connected to +3.3V
-#define LED_LOW HIGH
-#define LED_HIGH LOW
+//#define LED_LOW HIGH
+//#define LED_HIGH LOW
 
-//#define LED_LOW LOW
-//#define LED_HIGH HIGH
+#define LED_LOW LOW
+#define LED_HIGH HIGH
 
 Led::Led(byte infoLedPin, byte sysLedPin, AppState *appState) {
     this->infoLedPin = infoLedPin;

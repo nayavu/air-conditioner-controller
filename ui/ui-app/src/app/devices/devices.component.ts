@@ -12,6 +12,37 @@ export class DevicesComponent implements OnInit {
   public aircond: AirCond;
   public status = '';
 
+  public modeList = [
+    { name: 'Auto', value: 'auto' },
+    { name: 'Cool', value: 'cool' },
+    { name: 'Heat', value: 'heat' },
+    { name: 'Dry',  value: 'dry' }
+  ];
+
+  public fanList = [
+    { name: 'Auto', value: 'auto' },
+    { name: '1 (min)', value: '1' },
+    { name: '2', value: '2' },
+    { name: '3', value: '3' },
+    { name: '4', value: '4' },
+    { name: '5 (max)', value: '5' }
+  ];
+
+  public swingList = [
+    { name: 'Auto', value: 'auto' },
+    { name: '1 (horizontal)', value: '1' },
+    { name: '2', value: '2' },
+    { name: '3', value: '3' },
+    { name: '4', value: '4' },
+    { name: '5 (vertical)', value: '5' }
+  ];
+
+  public profileList = [
+    { name: 'Normal', value: 'normal' },
+    { name: 'Powerful', value: 'powerful' },
+    { name: 'Quiet', value: 'quiet' }
+  ];
+
   constructor(private http: HttpClient) { }
 
   ngOnInit() {
@@ -38,5 +69,5 @@ export interface AirCond {
   mode: 'auto' | 'heat' | 'cool' | 'dry',
   fan: 'auto' | '1' | '2' | '3' | '4' | '5',
   swing: 'auto' | '1' | '2' | '3' | '4' | '5',
-  profile: 'normal' | 'quiet' | 'boost'
+  profile: 'normal' | 'powerful' | 'quiet'
 }
