@@ -26,7 +26,7 @@ private:
 
 public:
     const AppConfig* config;
-    ConfigManager() : config(&_config) { };
+    ConfigManager() : config(&_config) { sprintf(_config.deviceName, "remote-control-%04x", ESP.getChipId()); };
 
     bool load();
     bool save();

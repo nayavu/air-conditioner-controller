@@ -20,9 +20,9 @@ var ctx = {
             power : false,
             t : 16,
             mode : 'auto',
-            fan : 'auto',
-            swing : 'auto',
-            profile : 'normal'
+            fan : 0,
+            swing : 0,
+            profile : 0
         }
     }
 };

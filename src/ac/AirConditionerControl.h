@@ -6,7 +6,7 @@
 #define REMOTE_CONTROL_AIRCONDITIONERCONTROL_H
 
 #include <Arduino.h>
-#include <AirConditioner.h>
+#include <ac/AirConditioner.h>
 
 #define JSON_SIZE JSON_OBJECT_SIZE(6) + 60
 

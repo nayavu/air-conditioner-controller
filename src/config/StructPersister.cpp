@@ -14,7 +14,7 @@
 
 byte StructPersister::calculateChecksum(byte* obj, size_t objLen) {
     uint8_t sum = 31;
-    for (uint16_t i = 0; i < objLen; i++) {
+    for (size_t i = 0; i < objLen; i++) {
         sum ^= obj[i];
     }
     return sum;

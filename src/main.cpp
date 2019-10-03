@@ -6,15 +6,16 @@
 #include <ESP8266mDNS.h>
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
-#include <ArduinoJson.h>
 #include <ArduinoOTA.h>
+#include <DoubleResetDetector.h>
 
-#include "App.h"
-#include "Led.h"
-#include "AirConditionerControl.h"
-#include "PanasonicRKDAirConditioner.h"
-#include "ConfigManager.h"
-#include "UiWebServer.h"
+
+#include "app/App.h"
+#include "app/Led.h"
+#include "ac/AirConditionerControl.h"
+#include "ac/PanasonicRKDAirConditioner.h"
+#include "config/ConfigManager.h"
+#include "web/UiWebServer.h"
 
 #ifdef DEBUG_ESP_PORT
 #define DEBUG_SETUP() DEBUG_ESP_PORT.begin(115200)
@@ -42,11 +43,20 @@ PanasonicRKDAirConditioner panasonicAirCond(&irsend);
 AirConditionerControl airConditioner(&panasonicAirCond);
 
 
-#define WIFI_AP_SSID "remote-control"
 #define WIFI_AP_PASS "remote-control"
 #define WIFI_MAX_CONNECT_TIME 60 * 1000 // 1 min
 
 #define OTA_PASS "R3m0t3-C0ntr0l" // yes, it's not secure to store passwords in the source code on Github :)
+
+bool rebooting = false;
+
+// Number of seconds after reset during which a subseqent reset will be considered a double reset.
+#define DRD_TIMEOUT 2
+
+// RTC Memory Address for the DoubleResetDetector to use
+#define DRD_ADDRESS 0
+
+DoubleResetDetector drd(DRD_TIMEOUT, DRD_ADDRESS);
 
 // ------ Wifi ------
 
@@ -62,10 +72,10 @@ void loopWifi() {
     }
     if (app.state == CONFIG) {
         if (!wifiSetApMode) {
-            DEBUG_MSG("Setting up wifi AP with ssid=%s pass=%s", WIFI_AP_SSID, WIFI_AP_PASS);
+            DEBUG_MSG("Setting up wifi AP with ssid=%s pass=%s", configManager.config->deviceName, WIFI_AP_PASS);
             wifiSetApMode = true;
             WiFi.mode(WIFI_AP);
-            WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASS);
+            WiFi.softAP(configManager.config->deviceName, WIFI_AP_PASS);
             DEBUG_MSG("IP: %s", WiFi.softAPIP().toString().c_str());
 
         }
@@ -77,6 +87,7 @@ void loopWifi() {
         wifiSetClientMode = true;
 
         WiFi.mode(WIFI_STA);
+        WiFi.setAutoConnect(true);
         WiFi.begin(configManager.config->wifiSsid, configManager.config->wifiPass);
         WiFi.setSleepMode(WIFI_NONE_SLEEP);
 
@@ -95,7 +106,6 @@ void loopWifi() {
             }
         }
     } else {
-
         if (app.state == CONNECTING_WIFI) {
             if (WiFi.status() == WL_NO_SSID_AVAIL) {
                 app.state = ERROR;
@@ -115,10 +125,15 @@ void loopWifi() {
             if ((current > wifiConnectAttemptAt && current - wifiConnectAttemptAt > WIFI_MAX_CONNECT_TIME)
                     || (current < wifiConnectAttemptAt && UINT32_MAX - wifiConnectAttemptAt + current > WIFI_MAX_CONNECT_TIME)) {
                 // could not connect to wifi within WIFI_MAX_CONNECT_TIME
-                DEBUG_MSG("Could not connect to wifi within %d ms, falling back to config mode", WIFI_MAX_CONNECT_TIME);
+                DEBUG_MSG("Could not connect to wifi (status=%d) within %d ms, falling back to config mode", WiFi.status(), WIFI_MAX_CONNECT_TIME);
                 app.state = ERROR;
             }
         } else {
+            if (WiFi.status() == WL_DISCONNECTED) {
+                DEBUG_MSG("Disconnected WiFi, reconnecting");
+                WiFi.reconnect();
+            }
+
             app.state = CONNECTING_WIFI;
         }
     }
@@ -126,20 +141,29 @@ void loopWifi() {
 
 // ------ MQTT ------
 
-bool mqttSetClient;
+bool mqttInitialised;
 
-const char* HELLO_TOPIC = "/devices/hello";
+const char* mqttHelloTopic = "/dev/hello";
 
-String mqttSetTopic;
-String mqttStateTopic;
+// In MQTT, topic name + message length should be <= 121 chars
+
+String mqttStateTopic = "/dev/rc/%s/state";
+String mqttSetStateTopic = "/dev/rc/%s/state/set";
 
 void mqttPublishState() {
     String output;
     airConditioner.getState(output);
-    mqttClient.publish(mqttStateTopic.c_str(), output.c_str());
+
+    DEBUG_MSG("Publishing state %s to %s", output.c_str(), mqttStateTopic.c_str());
+
+    if (!mqttClient.publish(mqttStateTopic.c_str(), output.c_str())) {
+        DEBUG_MSG("Failed");
+        led.error();
+    };
 }
 void onMqttMessage(char* topic, const byte* payload, word l) {
-    if (!strcmp(topic, mqttSetTopic.c_str())) {
+    DEBUG_MSG("Received MQTT message %s from %s", payload, mqttSetStateTopic.c_str());
+    if (!strcmp(topic, mqttSetStateTopic.c_str())) {
         if (airConditioner.setState(String((const char*) payload))) {
             led.blink();
         } else {
@@ -158,17 +182,18 @@ void setupMqtt() {
     mqttClient.setServer(ipAddress, port);
     mqttClient.setCallback(&onMqttMessage);
 
-    mqttSetTopic = String("/devices/remote-control/") + configManager.config->deviceName + "/set";
-    mqttStateTopic = String("/devices/remote-control/") + configManager.config->deviceName;
+    mqttStateTopic.replace("%s", configManager.config->deviceName);
+    mqttSetStateTopic.replace("%s", configManager.config->deviceName);
 }
 
 void loopMqtt() {
     if (app.state == CONNECTED_WIFI) {
         app.state = CONNECTING_MQTT;
+        mqttInitialised = false;
     }
     if (app.state == CONNECTING_MQTT) {
-        if (!mqttSetClient) {
-            mqttSetClient = true;
+        if (!mqttInitialised) {
+            mqttInitialised = true;
             DEBUG_MSG("Connecting to MQTT as id=%s, user=%s, pass=%s", configManager.config->deviceName, configManager.config->mqttUser, configManager.config->mqttPass);
             if (configManager.config->mqttUser && strlen(configManager.config->mqttUser) && configManager.config->mqttPass && strlen(configManager.config->mqttPass)) {
                 mqttClient.connect(configManager.config->deviceName, configManager.config->mqttUser, configManager.config->mqttPass);
@@ -178,9 +203,19 @@ void loopMqtt() {
         }
 
         if (mqttClient.connected()) {
-            DEBUG_MSG("Subscribing to topic %s", mqttSetTopic.c_str());
-            mqttClient.subscribe(mqttSetTopic.c_str());
-            mqttClient.publish(HELLO_TOPIC, configManager.config->deviceName);
+            DEBUG_MSG("Subscribing to topic %s", mqttSetStateTopic.c_str());
+            mqttClient.subscribe(mqttSetStateTopic.c_str());
+
+            // rc = remote-control
+            String helloMsg = String("{\"type\":\"rc\",\"name\":\"");
+            helloMsg += configManager.config->deviceName;
+            helloMsg += "\"}";
+
+            DEBUG_MSG("Publishing to /device/hello");
+            if (!mqttClient.publish(mqttHelloTopic, helloMsg.c_str())) {
+                led.error();
+                DEBUG_MSG("Failed");
+            }
             mqttPublishState();
 
             app.state = NORMAL;
@@ -188,7 +223,10 @@ void loopMqtt() {
     }
     if (!mqttClient.connected() && app.state == NORMAL) {
         DEBUG_MSG("Lost connection to MQTT server");
+        mqttClient.disconnect();
         app.state = CONNECTING_MQTT;
+        mqttInitialised = false;
+        return;
     };
     if (app.state == NORMAL) {
         mqttClient.loop();
@@ -246,7 +284,7 @@ void setupServer() {
             led.blink();
             server.send(200);
             DEBUG_MSG("HTTP 200");
-            ESP.restart();
+            rebooting = true;
         } else {
             led.error();
             server.send(400);
@@ -267,6 +305,7 @@ void setupServer() {
 void setupOTA() {
     ArduinoOTA.setPort(8266);
     ArduinoOTA.setRebootOnSuccess(true);
+    ArduinoOTA.setHostname(configManager.config->deviceName);
     ArduinoOTA.setPassword(OTA_PASS);
     ArduinoOTA.onStart([]() {
         led.blink(5);
@@ -295,10 +334,12 @@ void setupOTA() {
             DEBUG_MSG("OTA receive failed");
         } else if (error == OTA_END_ERROR) {
             DEBUG_MSG("OTA end failed");
+        } else {
+            DEBUG_MSG("Unknown error %d", error);
         }
         led.blink(10);
     });
-    ArduinoOTA.begin();
+    ArduinoOTA.begin(false);
 }
 
 void handleOTA() {
@@ -308,16 +349,19 @@ void handleOTA() {
 // ------ main ------
 
 void setup() {
+    bool doubleReset = drd.detectDoubleReset();
+
     DEBUG_SETUP();
     DEBUG_MSG("\n-------\n");
     led.setup();
     SPIFFS.begin();
 
     DEBUG_MSG("Loading config");
-    if (!configManager.load()) {
+    if (!configManager.load() || doubleReset) {
         app.state = CONFIG;
     } else {
         app.state = CONNECTING_WIFI;
+        app.mqttEnabled = configManager.config->mqttHost != 0;
     }
     DEBUG_MSG("Config: deviceName=%s wifiSsid=%s wifiPass=%s mqttHost=%s mqttPort=%s mqttUser=%s mqttPass=%s",
               configManager.config->deviceName, configManager.config->wifiSsid, configManager.config->wifiPass, configManager.config->mqttHost, configManager.config->mqttPort, configManager.config->mqttUser, configManager.config->mqttPass);
@@ -337,6 +381,7 @@ void setup() {
 }
 
 void loop() {
+    drd.loop();
     handleOTA();
 
     loopWifi();
@@ -348,5 +393,11 @@ void loop() {
     server.handleClient();
 
     led.loop();
+
     delay(1);
+
+    if (rebooting) {
+        rebooting = false;
+        ESP.restart();
+    }
 }

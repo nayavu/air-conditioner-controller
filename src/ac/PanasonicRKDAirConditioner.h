@@ -8,7 +8,7 @@
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
 #include <ArduinoJson.h>
-#include <AirConditioner.h>
+#include <ac/AirConditioner.h>
 
 #define PANASONIC_AC_HDR_MARK     3572
 #define PANASONIC_AC_HDR_SPACE    1650

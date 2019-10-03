@@ -20,27 +20,27 @@ export class DevicesComponent implements OnInit {
   ];
 
   public fanList = [
-    { name: 'Auto', value: 'auto' },
-    { name: '1 (min)', value: '1' },
-    { name: '2', value: '2' },
-    { name: '3', value: '3' },
-    { name: '4', value: '4' },
-    { name: '5 (max)', value: '5' }
+    { name: 'Auto', value: 0 },
+    { name: '1 (min)', value: 1 },
+    { name: '2', value: 2 },
+    { name: '3', value: 3 },
+    { name: '4', value: 4 },
+    { name: '5 (max)', value: 5 }
   ];
 
   public swingList = [
-    { name: 'Auto', value: 'auto' },
-    { name: '1 (horizontal)', value: '1' },
-    { name: '2', value: '2' },
-    { name: '3', value: '3' },
-    { name: '4', value: '4' },
-    { name: '5 (vertical)', value: '5' }
+    { name: 'Auto', value: 0 },
+    { name: '1 (horizontal)', value: 1 },
+    { name: '2', value: 2 },
+    { name: '3', value: 3 },
+    { name: '4', value: 4 },
+    { name: '5 (vertical)', value: 5 }
   ];
 
   public profileList = [
-    { name: 'Normal', value: 'normal' },
-    { name: 'Powerful', value: 'powerful' },
-    { name: 'Quiet', value: 'quiet' }
+    { name: 'Normal', value: 0 },
+    { name: 'Powerful', value: 1 },
+    { name: 'Quiet', value: 2 }
   ];
 
   constructor(private http: HttpClient) { }

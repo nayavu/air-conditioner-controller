@@ -11,7 +11,7 @@
 
 /**
  * A subclass of ESP8266WebServer with pre-configured routes for Angular application
- * It assumes, that static files are encoded via brotli algorithm
+ * It assumes, that JS/HTML files are gzipped
  */
 class UiWebServer : public ESP8266WebServer {
 private:
