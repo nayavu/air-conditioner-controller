@@ -34,8 +34,9 @@ app.use(function(req, res, next) {
 });
 
 app.get('/config', (req, res) => {
-    res.send(ctx.config)
+    res.send(ctx.config);
     // res.status(404).send(''); // if a fresh installation and there's no config file in the fs
+    // res.status(500).send(''); // failed to load/parse config
 });
 
 app.post('/config', (req, res) => {
@@ -55,6 +56,12 @@ app.get('/devices/aircond', (req, res) => {
 app.post('/devices/aircond', (req, res) => {
     console.log(req.body);
     ctx.devices.aircond = req.body;
+    res.status(200).send();
+});
+
+app.post('/reboot', (req, res) => {
+    const mode = req.query.config ? "config" : "normal";
+    console.log("Rebooting into " + mode + " mode");
     res.status(200).send();
 });
 

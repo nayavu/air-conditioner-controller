@@ -5,6 +5,9 @@
     </div>
 
     <form name="config" *ngIf="config" #configForm="ngForm">
+
+        <div class="alert alert-info" role="alert" *ngIf="msg">{{msg}}</div>
+
         <div>
             <div class="form-group">
                 <label for="deviceName">Device name *</label>
@@ -34,8 +37,8 @@
                 </div> -->
             </div>
             <div class="form-group">
-                <label for="wifiPassword">Wifi password *</label>
-                <input type="password" class="form-control" id="wifiPassword" name="wifiPassword" placeholder="" [maxLength]="64" [required]="true" [(ngModel)]="config.wifiPass" />
+                <label for="wifiPassword">Wifi password</label>
+                <input type="password" class="form-control" id="wifiPassword" name="wifiPassword" placeholder="" [maxLength]="64" [(ngModel)]="config.wifiPass" />
             </div>
         </div>
 
@@ -61,25 +64,38 @@
             </div>
         </div>
 
-        <button type="submit" class="btn btn-primary" (click)="save()" [disabled]="!configForm.form.valid || status == 'saving'">
-            <ng-container *ngIf="status == 'saving'">
-                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                Saving...
-            </ng-container>
-            <ng-container *ngIf="status != 'saving'">
-                Save
-            </ng-container>
-        </button>
+        <div class="form-row">
+            <div class="form-group col-md-9">
+                <button type="submit" class="btn btn-primary" (click)="save()" [disabled]="!configForm.form.valid || status == 'saving'">
+                    <ng-container *ngIf="status == 'saving'">
+                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        Saving...
+                    </ng-container>
+                    <ng-container *ngIf="status != 'saving'">
+                        Save
+                    </ng-container>
+                </button>
+            </div>
+            <div class="form-group col-md-1">
+                <button type="button" class="btn btn-warning" (click)="reboot()">Reboot</button>
+            </div>
+            <div class="form-group col-md-2">
+                <button type="button" class="btn btn-warning" (click)="reboot(true)" title="Enforce config mode">Config mode</button>
+            </div>
+        </div>
 
-        <div class="alert" [ngClass]="status == 'saved' ? 'alert-success' : 'alert-danger'" role="alert" *ngIf="status == 'saved' || status == 'error'">
+        <div class="alert" [ngClass]="status == 'error' ? 'alert-danger' :  'alert-success' " role="alert" *ngIf="status">
             <button type="button" class="close" data-dismiss="alert" aria-label="Close" (click)="status = ''">
                 <span aria-hidden="true">&times;</span>
             </button>
             <ng-container *ngIf="status == 'saved'">
                 Confguration saved. Rebooting...
             </ng-container>
+            <ng-container *ngIf="status == 'rebooting'">
+                Rebooting...
+            </ng-container>
             <ng-container *ngIf="status == 'error'">
-                Failed to save configuration
+                Failed
             </ng-container>
         </div>
     </form>

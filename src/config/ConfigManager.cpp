@@ -3,6 +3,11 @@
 //
 
 #include "ConfigManager.h"
+#include "FS.h"
+
+bool ConfigManager::isPersisted() {
+    return SPIFFS.exists(configFile);
+}
 
 bool ConfigManager::load() {
     return StructPersister::load(configFile, (uint8_t*) &_config, sizeof(AppConfig));

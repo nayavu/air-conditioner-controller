@@ -28,6 +28,7 @@ public:
     const AppConfig* config;
     ConfigManager() : config(&_config) { sprintf(_config.deviceName, "remote-control-%04x", ESP.getChipId()); };
 
+    bool isPersisted();
     bool load();
     bool save();
 

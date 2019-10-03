@@ -48,8 +48,6 @@ AirConditionerControl airConditioner(&panasonicAirCond);
 
 #define OTA_PASS "R3m0t3-C0ntr0l" // yes, it's not secure to store passwords in the source code on Github :)
 
-bool rebooting = false;
-
 // Number of seconds after reset during which a subseqent reset will be considered a double reset.
 #define DRD_TIMEOUT 2
 
@@ -72,6 +70,11 @@ void loopWifi() {
     }
     if (app.state == CONFIG) {
         if (!wifiSetApMode) {
+            if (app.mqttEnabled) {
+                mqttClient.disconnect();
+            }
+            WiFi.disconnect(true);
+
             DEBUG_MSG("Setting up wifi AP with ssid=%s pass=%s", configManager.config->deviceName, WIFI_AP_PASS);
             wifiSetApMode = true;
             WiFi.mode(WIFI_AP);
@@ -265,6 +268,13 @@ void setupServer() {
 
     server.on("/config", HTTP_GET, []() {
         DEBUG_MSG("GET /config");
+        bool configPersisted = configManager.isPersisted();
+        if (!configPersisted) {
+            server.send(404);
+            DEBUG_MSG("HTTP 404 Config does not exist");
+            return;
+        }
+
         bool configLoaded = configManager.load();
         if (!configLoaded) {
             server.send(500);
@@ -284,12 +294,26 @@ void setupServer() {
             led.blink();
             server.send(200);
             DEBUG_MSG("HTTP 200");
-            rebooting = true;
+            app.state = REBOOTING;
         } else {
             led.error();
             server.send(400);
             DEBUG_MSG("HTTP 400");
         }
+    });
+
+    server.on("/reboot", HTTP_POST, []() {
+        DEBUG_MSG("POST /reboot?config=%s\n", server.arg("config").c_str());
+        led.blink();
+
+        if (!strcmp(server.arg("config").c_str(), "true")) {
+            app.state = ERROR;
+        } else {
+            app.state = REBOOTING;
+        }
+
+        server.send(200);
+        DEBUG_MSG("HTTP 200");
     });
     
     server.onNotFound([]() {
@@ -396,8 +420,7 @@ void loop() {
 
     delay(1);
 
-    if (rebooting) {
-        rebooting = false;
+    if (app.state == REBOOTING) {
         ESP.restart();
     }
 }

@@ -10,6 +10,7 @@ export class ConfigComponent implements OnInit {
 
   public config: Config;
   public status = '';
+  public msg = '';
 
   constructor(private http: HttpClient) { }
 
@@ -19,7 +20,15 @@ export class ConfigComponent implements OnInit {
           this.config = data;
         },
         error => {
-          console.warn("No configuration found, assuming it's a fresh installation");
+
+          if (error.status == 404) {
+            this.msg = 'No persisted configuration found';
+          } else if (error.status == 500) {
+            this.msg = 'Configuration file corrupted';
+          } else {
+            this.msg = 'Unknown error with configuration';
+          }
+
           this.config = {
             deviceName: 'remote',
             wifiSsid: '',
@@ -33,10 +42,22 @@ export class ConfigComponent implements OnInit {
   }
 
   save() {
+    this.msg = '';
+
     this.status = 'saving';
     this.http.post(environment.backend + '/config', this.config).subscribe(
         (data: Config) => {
           this.status = 'saved';
+        },
+        error => {
+          this.status = 'error';
+        })
+  }
+
+  reboot(configMode = false) {
+    this.http.post(environment.backend + '/reboot' + (configMode ? '?config=true' : ''), null).subscribe(
+        (data: Config) => {
+          this.status = 'rebooting';
         },
         error => {
           this.status = 'error';

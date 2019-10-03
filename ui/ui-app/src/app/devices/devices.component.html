@@ -73,7 +73,7 @@
             </ng-container>
         </button>
 
-        <div class="alert" [ngClass]="status == 'saved' ? 'alert-success' : 'alert-danger'" role="alert" *ngIf="status == 'saved' || status == 'error'">
+        <div class="alert" [ngClass]="status == 'error' ? 'alert-danger' : 'alert-success' " role="alert" *ngIf="status">
             <button type="button" class="close" data-dismiss="alert" aria-label="Close" (click)="status = ''">
                 <span aria-hidden="true">&times;</span>
             </button>
